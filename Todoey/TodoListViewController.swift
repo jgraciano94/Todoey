@@ -10,7 +10,7 @@ import UIKit
 
 class TodoListViewController: UITableViewController {
 
-    let itemArray = ["Find Mike", "Buy Eggos", "Destroy Demogorgon"] // these are just hard coded to be the text for the first 3 cells in the Table View
+    var itemArray = ["Find Mike", "Buy Eggos", "Destroy Demogorgon"] // these are just hard coded to be the text for the first 3 cells in the Table View. By changing the data type to var it becomes mutable.
     
     
     override func viewDidLoad() {
@@ -62,7 +62,44 @@ class TodoListViewController: UITableViewController {
         // here is a method inside this method so that we give the cell that was selected a checkmark as an accessory
     }
     
+    // MARK: Add New Items
 
+    @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
+        // here we want a pop up or a UI Alert Controller to show when we press the add button and we have a textfield in that UI Alert Controller so that we can write a quick to do list item and then append it to the end of our itemsArray
+        
+        var textField = UITextField() // this textfield has the scope of the entire addButtonPressed IB action and is going to be accessible to everything in this method.
+        
+        let alert = UIAlertController(title: "Add New Todoey Item", message: "", preferredStyle: .alert)
+        
+        // this is the button that you are going to press once you're done with writing your new To Do list item
+        let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
+            // what will happen once the user clicks the Add Item button on our UIAlert
+            
+        self.itemArray.append(textField.text!) // we are going to force unwrap this because the text property of the textField is never going to equal nil even if its empty it's going to be set to an empty string
+            //we are appending whatever the user adds in the textfield to the array itemArray
+            
+        self.tableView.reloadData() // this reloads the rows and the sections of the TableView taking into account the new data we've added to our itemArray
+            
+        print(textField.text) // to check if it the reference we created in the closure below works and is accessible globally. Prints everything that is added to the textfield after the Add Item button is pressed
+        
 
+        } // press enter on the last parameter to create a completion handler or a closure. This is the completion block that gets called once that "Add Item" gets pressed
+        
+        alert.addTextField { (alertTextField) in
+            alertTextField.placeholder = "Create new item" // this is the string that is going to show up in gray and is going to disappear when the user clicks on that textfield
+            
+            textField = alertTextField  // here we want to set the textField variable with a wider scope equal to the alertTextfield which has a narrower scope. We are extending the scope of this alertTextField to the addButtonPressed method.
+            
+            // the alertTextfield has the scope of this closure only (only available in here)
+        }// in order to add a textfield to our alert (very similar to adding an action)
+        // hit enter on the placeholder parameter to insert closure
+        // we are going to call the textfield that we create 'alertTextField
+        
+        alert.addAction(action) // now let's add our action to our alert
+        
+        present(alert, animated: true, completion: nil)// now we want to show our alert
+        
+    }
+    
 }
 
