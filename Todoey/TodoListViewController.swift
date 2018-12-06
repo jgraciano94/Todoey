@@ -12,10 +12,16 @@ class TodoListViewController: UITableViewController {
 
     var itemArray = ["Find Mike", "Buy Eggos", "Destroy Demogorgon"] // these are just hard coded to be the text for the first 3 cells in the Table View. By changing the data type to var it becomes mutable.
     
+    let defaults = UserDefaults.standard // in order to use defaults, we have to create a new defaults object
+    // User Defaults is an interface to the user's default database where you store key value pairs persistently across launches of your app. Here we are setting up a standard user default
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        
+        if let items = defaults.array(forKey: "TodoListArray") as? [String] {
+            itemArray = items
+        }// here we are retrieving the data that was saved in an array in our User defaults
     }
     
     //MARK: - Tableview Datasource Methods
@@ -49,7 +55,7 @@ class TodoListViewController: UITableViewController {
 //         // this is going to print the element in the array that corresponds to the specific cell that is selected
         
         // this method removes the checkmark when it's already been selected
-        if ((tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark) != nil) {
+        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark {
             tableView.cellForRow(at: indexPath)?.accessoryType = .none
         }
         else {
@@ -77,6 +83,9 @@ class TodoListViewController: UITableViewController {
             
         self.itemArray.append(textField.text!) // we are going to force unwrap this because the text property of the textField is never going to equal nil even if its empty it's going to be set to an empty string
             //we are appending whatever the user adds in the textfield to the array itemArray
+            
+        self.defaults.set(self.itemArray, forKey: "TodoListArray") // here we can save the updated item array to User Defaults
+            // the key is going to identify this array inside our UserDefaults
             
         self.tableView.reloadData() // this reloads the rows and the sections of the TableView taking into account the new data we've added to our itemArray
             
