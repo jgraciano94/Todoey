@@ -17,8 +17,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
         // this is a place that gets called when your app gets loaded up so it doesn't atter if the rest of your app is going to crash. This is the first thing that happens and this happens before the viewDidLoad inside the first View Controller or the initial view controller
-        
-        print(NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).last! as String)// here we are writing code to printout the path for our User Defaults file. We are accessing the last element of the array and printing it out as a string
        
         return true
     }

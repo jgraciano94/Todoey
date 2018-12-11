@@ -12,32 +12,23 @@ class TodoListViewController: UITableViewController {
 
     var itemArray = [Item]() // we are changing this array to an array of item objects which hold info about the items added to the list in the Table View Controller
     
-    let defaults = UserDefaults.standard // in order to use defaults, we have to create a new defaults object
-    // User Defaults is an interface to the user's default database where you store key value pairs persistently across launches of your app. Here we are setting up a standard user default
+   // instead of using User Defaults, we are going to create our own p list at the location of our data file path
+    
+    // here we are going to create a file path to our Documents directory
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist") //FileManager is the object that provides an interface to the file system.
+    // and then we are going to use the default file manage which is a shared file manager object
+    // .default is a singleton and this singleton contains a whole bunch of URLs and they are organized by directory and domain mask
+    // The Search path Directory we need to tap into is the Document directory
+    // the location where we are going to look for it is inside the user domain mask, this is the user's home directory, the place where we're going to save their personal items associated with this current app
+    // because this is an array, we are going to grab the first item
+    // The .appendingPathComponent allows us to create a path to create our plist file. We can call the path component anything we want.
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        let newItem = Item()
-        newItem.title = "Find Mike" // changing the title property of the Item class
-        itemArray.append(newItem) // we are going to append the new element
-        
-        let newItem2 = Item()
-        newItem2.title = "Buy eggos" // changing the title property of the Item class
-        itemArray.append(newItem2) // we are going to append the new element
-        
-        let newItem3 = Item()
-        newItem3.title = "Buy dog food" // changing the title property of the Item class
-        itemArray.append(newItem3) // we are going to append the new element
-        
-        
-        
-        if let items = defaults.array(forKey: "TodoListArray") as? [Item] { // here we are trying to pull out our array from User Defaults as an array of items.
-            // here we are also checking to see if there is an array called TodoListArray to avoid the app crash if there isn't any array, then perform the following:
-            itemArray = items // we need to use the array saved in User defaults to retrieve the data. All we need to do to retrieve the data is we can go to viewDidLoad and we can set our itemArray to equal the array inside our User Default
-        } // here we are retrieving the data that was saved in an array in our User defaults
-        // here we are reactivating our defaults to try and retrieve our items out of our item Array
+        loadItems()
     }
     
     //MARK: - Tableview Datasource Methods
@@ -93,7 +84,7 @@ class TodoListViewController: UITableViewController {
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
         // this means that it sets the done property on the current item in the itemArray to the opposite of itemArray[indexPath.row].done (or what it is right now)
         
-        tableView.reloadData() // it forces the Table View cell to call its data source methods again so that it reloads the data that's meant to be inside. The above checkpoint operation simply updates the data in the itemArray
+        saveItems()
         
         tableView.deselectRow(at: indexPath, animated: true) // now when you select a cell, it flashes gray briefly but then it goes back to being de-selected and goes back to be white which looks a lot nicer
         
@@ -118,11 +109,8 @@ class TodoListViewController: UITableViewController {
             
         self.itemArray.append(newItem) // here we are appending the new Item that is created above into our itemArray that contains Item objects.
             //we are appending whatever the user adds in the textfield to the array itemArray
-            
-        self.defaults.set(self.itemArray, forKey: "TodoListArray") // here we can save the updated item array and set it into User Defaults
-            // the key is going to identify this array inside our UserDefaults
-            
-        self.tableView.reloadData() // this reloads the rows and the sections of the TableView taking into account the new data we've added to our itemArray
+
+        self.saveItems()
             
         print(textField.text!) // to check if it the reference we created in the closure below works and is accessible globally. Prints everything that is added to the textfield after the Add Item button is pressed
         
@@ -144,6 +132,37 @@ class TodoListViewController: UITableViewController {
         
         present(alert, animated: true, completion: nil)// now we want to show our alert
         
+    }
+
+    func saveItems() { // this method saves the data to the property list
+        let encoder = PropertyListEncoder() // here we are creating an object that encodes instances of data types to a property list
+        
+        do {
+            let data = try encoder.encode(itemArray) // encoder is the property listing encoder above that we just created which will encode our data namely our item array into a property list
+            // since we are inside a closure, we have to mark all the properties with self
+            
+            // the next step is to write the data to our data file path
+            try data.write(to: dataFilePath!) // here we are writing the data to a location and the location is of course going to be our dataFilePath in viewDidLoad
+        } catch {
+            print("Error encoding item array, \(error)")
+        }
+        
+        self.tableView.reloadData() // this reloads the rows and the sections of the TableView taking into account the new data we've added to our itemArray
+    }
+    
+    func loadItems() {
+        if let data = try? Data(contentsOf: dataFilePath!) { // this is a method that can throw an error so we are going to mark it with a try question mark which will turn the result of this method (Data(contentsOf: dataFilePath!)) into an optional. Then we are going to use optional binding to unwrap that safely.
+            
+            let decoder = PropertyListDecoder() // here we are creating a new object called a Decoder of the class PropertyListDecoder(). In order to decode our items, we have to create a decoder.
+            do {
+            itemArray = try decoder.decode([Item].self, from: data) // this is the method that's going to decode all data from the data file path.
+            // We have to specify what is the data type of the thing that's going to be decoded because Swift is not able to infer. Rare case
+            // Here since we are not specifying object, in order to refer to the type that is array of Items, we also have to write .self
+            // the data here is of course the data that we safely unwrapped above
+            } catch {
+                print("Error decoding item array, \(error)")
+            }
+        }
     }
     
 }
