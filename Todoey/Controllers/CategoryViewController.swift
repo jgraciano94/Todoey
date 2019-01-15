@@ -7,17 +7,19 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
-
-    var categoryArray = [Category]() // we are changing this array to an array of Category objects which hold info about the categories added to the list in the Category View Controller
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-    // here we are tapping into the UIApplication class, we are getting the shared singleton object which corresponds to the current app as an object, tapping into its delegate (which has the data type of an optional UIApplication Delegate), then casting it into our class app delegate. Now we have access to our app delegate as an object. We are now able to tap into its property called persistent Container. We are going to grab the viewContext of that persistent container
-    // the UIApplication.shared is a singleton app instance. At the time point when our app is running live inside the user's iPhone, then the shared UI Application will correspond to our live application object.
-    // Inside this shared UI Application object is something called delegate and this is the delegate of the app object alternatively known as the app delegate. We are going to downcast it as our class delegate
-    // here we are grabbing a reference to the context that we are going to be using in order to CRUD our data and this is going to be the thing that's going to communicate with our persistent container
+    // initialize a new realm
+    // the try! is what you would call a code smell or a bad smell. It is something that indicates or hints at possibly bad code and maybe a deeper problem but not always
+    // the Reason this Realm() initialization throws an error is because according to Realm, the first time when you are creating a new Realm instance, it can fail if your resources are constrained. In practice, this can only happen the first time a Realm instance is created on a given thread
+    let realm = try! Realm()
+
+    var categoryArray : Results<Category>? // Results is just an auto-updating container type (container types are things like arrays, dictionaries, results, lists) and it comes from Realm and it gets returned from object Queries. So that means whenever you try to query your Realm database, the results you get back are in the form of a Results object. This is going to contain a whole bunch of Category objects
+    // we are making this an optional not force unwrapping it with an ! mark because if we forget to load up our categories below and this line was in fact nil, when we force unwrap it and try to use it to populate our Table View, we will have an issue
+    
+
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -34,7 +36,9 @@ class CategoryViewController: UITableViewController {
     // first method returns the number of rows
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // this method expects an output in a return statement that will be the number of rows
-        return categoryArray.count // returns the number of categories in the array initialized near the class declaration
+        return categoryArray?.count ?? 1// returns the number of categories in the array initialized near the class declaration
+        // here we are saying if categoryArray is not nil, then return categories.count but if it is nil, then just return 1
+        // the '??' is called the Nil Coalescing operator. What this means is that the left side can be nil because categoryArray is an optional and we're only saying get the count of categoryArray if it is not nil, but if it is nil, then 'categoryArray?.count' is going to be nil and the nil coalescing operator will say use the value on the right side aka 1
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -44,11 +48,11 @@ class CategoryViewController: UITableViewController {
         // here we are saying go and find that prototype cell called 'CategoryCell' inside main.storyboard and generate a whole bunch of it that we can reuse
         // The identifier is the identifier which we gave to our prototype cell in main.storyboard
         // the indexPath is going to be the current index path that the Table View is looking to populate
-        
-        let category = categoryArray[indexPath.row] // this category is now the category that we're currently trying to set up for the cell
+      
         
         //Once we got our cell dequeued, the next step is to set the text label. This is the label that's in every single cell and we're going to set its text property and we're going to set it to equal the category in our category array
-        cell.textLabel?.text = category.name // this is the current row of the current index that we are populating. We need to tap into the name property using the dot notation since this will return a Categories object
+        cell.textLabel?.text = categoryArray?[indexPath.row].name ?? "No New Categories Added Yet" // this is the current row of the current index that we are populating. We need to tap into the name property using the dot notation since this will return a Categories object.
+          // here we are saying if the categoryArray is not nil, then we're going to get the item at the indexPath.row and grab the name property. If it is nil, then we're going to say the text is just going to be equal to no categories
         
         //final step is to return the cell
         return cell
@@ -70,15 +74,14 @@ class CategoryViewController: UITableViewController {
             // what will happen once the user clicks the Add Category button on our UIAlert
             
             
-            let newCategory = Category(context: self.context) // we need to initialize our core data object differently. Category is our Core Data class. Here we can specify the context where this category is going to exist. This context is going to be the viewContext of our persistent container (located in App Delegate.swift file)
+            let newCategory = Category() // we need to initialize our Realm object differently. Now our Category is going to be a straight up object from the Category Data Model
             
             
             newCategory.name = textField.text! // here we are creating a new Category object and tapping into its name property and setting equal to the text that is entered
             
-            self.categoryArray.append(newCategory) // here we are appending the new Category that is created above into our categoryArray that contains category objects.
-            //we are appending whatever the user adds in the textfield to the array categoryArray
+            // since the Result<Element> data type is an auto updating container, we don't need to append things to it anymore. It will simply auto-update and monitor for those changes
             
-            self.saveCategories()
+            self.save(category: newCategory)
             
             print(textField.text!) // to check if it the reference we created in the closure below works and is accessible globally. Prints everything that is added to the textfield after the Add Item button is pressed
             
@@ -108,39 +111,28 @@ class CategoryViewController: UITableViewController {
     
     //Setup the data manipulation methods namely save data and load data so that we can use CRUD
     
-    func saveCategories() {
-        // here we need to be able to commit our context to permanent storage inside our persistent container. In order to do that, we need to call 'try context.save!() '. This basically transfers what's currently in our staging area or our scratchpad, that's the context, into our permanent data stores
+    func save(category : Category) {
         do {
-            try context.save()
+            try realm.write {// here we need to try to write to our Realm database
+                realm.add(category) // we are going to add our new category that is passed in to our function and save it into our Realm container
+            }
             
         } catch {
-            print("Error saving context \(error)")
+            print("Error adding data \(error)")
         }
         
         self.tableView.reloadData() // this reloads the rows and the sections of the TableView taking into account the new data we've added to our categoryArray. This is done so our table view updates with our latest data.
     }
     
-    // inside here we need to read data from our context
-    func loadCategories(with request : NSFetchRequest<Category> = Category.fetchRequest()) {
-        // here we can modify this function to take a parameter that is the request. We need to specify the data type and it is an NSFetchRequest and it is going to return an array of categories
-        // since loadItems(request: request) does not make a lot of sense in English when calling it below in the extension, we can modify loadItems() above to have an external parameter. With is the external parameter and request is the internal parameter. request (the internal parameter) is going to be used inside this block of code for loadItems() and the external parameter (with) is going to be used when we call the function
-        // If when we call this function and we don't provide a value for the request (i.e. in viewDidLoad() above), then we can have a default value that is simply Category.fetchRequest(). Now up in viewDidLoad(), we can call loadItems() without giving it any parameters
+    // this is where we read from our database
+    func loadCategories() {
         
-        // we don't need this line if we are going to pass in another request through the method. We don't need to re-initialize a new request.
-        //        let request : NSFetchRequest<Category> = Category.fetchRequest()// here we are creating a constant of data type NSFetchRequest that is going to fetch results in the form of categories. There are a few cases where you need to specify the data type. Here we need to specify the data type and the entity which we are trying to request.
-        //        // Here we are putting an equal sign and tapping into the Category class/entity and make a new fetch request.
-        
-        // context.fetch() can throw an error so we have to use a do catch block
-        do {
-            categoryArray = try context.fetch(request) // we have to speak to our context before we can do anything with our persistent container. we type context.fetch and the fetch we want to make is our current request which is just a blank request that pulls everything that's currently inside our persistent container
-            // this method has an output and returns NSFetchRequestResult which we know to be an array of items that is stored in our persistent container
-            // Our context is going to fetch this broad request (variable called request above) which basically asks for everything back and once you do, then you're going to save the results inside our ItemArray which is what we used to load up our Table View Data Source
-            
-        } catch {
-            print("Error loading categories \(error)")
-        }
-        
-        tableView.reloadData() // we have to tell our table view to reload the data using our latest version of categories after fetching all of the category objects.
+        // here we are specifying the type which is all of the Category type objects.
+        // this will pull out all of the items inside our Realm that are of Category objects
+        // the data type that we get back here is Results containing a whole bunch of Categories as the element inside the results and the categoryArray is also the same data type
+        categoryArray = realm.objects(Category.self)
+
+//        tableView.reloadData() // we have to tell our table view to reload the data using our latest version of categories after fetching all of the category objects.
     }
     
     
@@ -161,7 +153,8 @@ class CategoryViewController: UITableViewController {
         // next, we need to grab the category that corresponds to the selected cell
         if let indexPath = tableView.indexPathForSelectedRow { // this is the index path that is going to identify the current row that is selected
         // .indexPathForSelectedRow is an optional index path so we are going to wrap it with an if let and if the index path is not nil, then we are going to tap into the destination view controller and we're going to set a property in the destination view controller called selectedCategory (which we will create in our ToDoListViewController) and we're going to set it equal to our array of categories at our index path
-            destinationVC.selectedCategory = categoryArray[indexPath.row]
+            destinationVC.selectedCategory = categoryArray?[indexPath.row]
+            // we are adding a ? to say that the selectedCategory of the destination VC will be set to the category if it is not nil at the indexPath.row that was selected.
         }
     }
 }

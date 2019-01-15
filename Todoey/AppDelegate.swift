@@ -7,7 +7,7 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -18,60 +18,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
         // this is a place that gets called when your app gets loaded up so it doesn't atter if the rest of your app is going to crash. This is the first thing that happens and this happens before the viewDidLoad inside the first View Controller or the initial view controller
+        
+        // we are going to create our new item (i.e. create in CRUD), and we're going to commit the current state of our realm. As with Core Data, we basically created a new piece of data, then we used the context to commit the current state to our persistent container or in this case it's our Realm Database.
+        // we are going to create our brand new realm. Realms are kind of like different persistent containers. We set realm equal to a new Realm object from the Realm class. The initialization of a new realm is actually marked with a throw so we have to mark it with a try and a do catch block.
+        // Realm allows us to use OOP and persist objects
+        
+//        print(Realm.Configuration.defaultConfiguration.fileURL) // in the future we may want to find out where our Realm file is, so keep this here
+        
+        do {
+            _ = try Realm() // we are going to use this to save a new piece of data
+            // because we are not really using this constant here we can make this constant name an underscore. You can also delete the let keyword as well.
+        } catch {
+            print ("Error initializing new realm, \(error)")
+        }
        
         return true
-    }
-
-
-    func applicationWillTerminate(_ application: UIApplication) {
-        // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
-        // Saves changes in the application's managed object context before the application terminates.
-        self.saveContext()
-    }
-    
-    // MARK: - Core Data stack
-    
-    lazy var persistentContainer: NSPersistentContainer = {
-        /*
-         The persistent container for the application. This implementation
-         creates and returns a container, having loaded the store for the
-         application to it. This property is optional since there are legitimate
-         error conditions that could cause the creation of the store to fail.
-         */
-        let container = NSPersistentContainer(name: "DataModel")
-        container.loadPersistentStores(completionHandler: { (storeDescription, error) in
-            if let error = error as NSError? {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                
-                /*
-                 Typical reasons for an error here include:
-                 * The parent directory does not exist, cannot be created, or disallows writing.
-                 * The persistent store is not accessible, due to permissions or data protection when the device is locked.
-                 * The device is out of space.
-                 * The store could not be migrated to the current model version.
-                 Check the error message to determine what the actual problem was.
-                 */
-                fatalError("Unresolved error \(error), \(error.userInfo)")
-            }
-        })
-        return container
-    }()
-    
-    // MARK: - Core Data Saving support
-    
-    func saveContext () {
-        let context = persistentContainer.viewContext
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nserror = error as NSError
-                fatalError("Unresolved error \(nserror), \(nserror.userInfo)")
-            }
-        }
     }
 }
 
