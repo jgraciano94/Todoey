@@ -8,8 +8,10 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework // we are importing this so we can incorporate color to our app
 
-class CategoryViewController: UITableViewController {
+class CategoryViewController: SwipeTableViewController {
+    // we have to conform to the SwipeTableViewCellDelegate protocol according to the SwipeCellKit documentation
     
     // initialize a new realm
     // the try! is what you would call a code smell or a bad smell. It is something that indicates or hints at possibly bad code and maybe a deeper problem but not always
@@ -20,11 +22,13 @@ class CategoryViewController: UITableViewController {
     // we are making this an optional not force unwrapping it with an ! mark because if we forget to load up our categories below and this line was in fact nil, when we force unwrap it and try to use it to populate our Table View, we will have an issue
     
 
-    
     override func viewDidLoad() {
         super.viewDidLoad()
 
         loadCategories()
+        
+        tableView.separatorStyle = .none // this erases the lines in between each cell
+        
     }
 
     //MARK: - TableView Datasource Methods
@@ -36,23 +40,37 @@ class CategoryViewController: UITableViewController {
     // first method returns the number of rows
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // this method expects an output in a return statement that will be the number of rows
-        return categoryArray?.count ?? 1// returns the number of categories in the array initialized near the class declaration
+        return categoryArray?.count ?? 1 // returns the number of categories in the array initialized near the class declaration
         // here we are saying if categoryArray is not nil, then return categories.count but if it is nil, then just return 1
         // the '??' is called the Nil Coalescing operator. What this means is that the left side can be nil because categoryArray is an optional and we're only saying get the count of categoryArray if it is not nil, but if it is nil, then 'categoryArray?.count' is going to be nil and the nil coalescing operator will say use the value on the right side aka 1
     }
     
+    // when this gets called, the first thing it does is because we call super, it goes into our super class and triggers the code inside our cellForRowAt indexPath()
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         // we are going to create a cell in here that is going to be a reusuable cell and add it to the table at the index path
+
+        // we can tap into the superclass SwipeTableViewController by saying the below
+        // the tableview is the same as we've got here. and the cellForAt indexPath
+        // this is going to tap into that cell tha gets created inside our Super View, and it taps into the cell at the current index path and then we're going to take that cell and then we're going to add some more things to it.
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
-        // here we are saying go and find that prototype cell called 'CategoryCell' inside main.storyboard and generate a whole bunch of it that we can reuse
-        // The identifier is the identifier which we gave to our prototype cell in main.storyboard
-        // the indexPath is going to be the current index path that the Table View is looking to populate
-      
-        
-        //Once we got our cell dequeued, the next step is to set the text label. This is the label that's in every single cell and we're going to set its text property and we're going to set it to equal the category in our category array
-        cell.textLabel?.text = categoryArray?[indexPath.row].name ?? "No New Categories Added Yet" // this is the current row of the current index that we are populating. We need to tap into the name property using the dot notation since this will return a Categories object.
-          // here we are saying if the categoryArray is not nil, then we're going to get the item at the indexPath.row and grab the name property. If it is nil, then we're going to say the text is just going to be equal to no categories
+        if let category = categoryArray?[indexPath.row] {
+            
+            // The cell above is already a swipe cell, but we're going to modify it further by changing the text label to the current category
+            cell.textLabel?.text = category.name ?? "No Categories Added Yet"
+            
+            // we can set this guard let to equal to the category color and if that doesn't work then throw a fatal error
+            guard let categoryColor = UIColor(hexString: category.color) else { fatalError()}
+            
+            // here is the most obvious place to change the background color because we set up a cell using the superclass method and then we get back that cell and we modify it a little bit further by changing the text.
+            // categoryArray is an optional so we have to use optional chaining to make sure we don't use a nil value. If categoryArray is not nil, then we are going to grab the category at indexPath.row and then tap into the color property. Color may or may not have a value, so if it doesn't have a value, we are going to say if there is no value, then here is a default value, namely "1D9BF6"
+            // since we used guard let above, we can set this equal to categoryColor
+            cell.backgroundColor = categoryColor
+            
+            // we are going to set the text color of the cell to be the contrasting color of the UIColor(hexString: category.color) and returning as a flat color
+            // instead of putting UIColor(hexString: ), we can put categoryColor which we used a 'guard let' above
+            cell.textLabel?.textColor = ContrastColorOf(categoryColor, returnFlat: true)
+        }
         
         //final step is to return the cell
         return cell
@@ -78,6 +96,8 @@ class CategoryViewController: UITableViewController {
             
             
             newCategory.name = textField.text! // here we are creating a new Category object and tapping into its name property and setting equal to the text that is entered
+            
+            newCategory.color = UIColor.randomFlat.hexValue() // this hex string gets saved into this property color and gets persisted when we call save to our new category
             
             // since the Result<Element> data type is an auto updating container, we don't need to append things to it anymore. It will simply auto-update and monitor for those changes
             
@@ -133,6 +153,24 @@ class CategoryViewController: UITableViewController {
         categoryArray = realm.objects(Category.self)
 
 //        tableView.reloadData() // we have to tell our table view to reload the data using our latest version of categories after fetching all of the category objects.
+    }
+    
+    //MARK: - Delete Data from Swipe
+    
+    override func updateModel(at indexPath: IndexPath) {
+        // this gets called when the user swipes on the cell and clicks on the delete button.
+        
+        // here we are going to use realm.write to update our realm
+        // since categoryArray is an optional, we have to handle it with optional binding
+        if let categoryForDeletion = self.categoryArray?[indexPath.row] {
+            do {
+                try self.realm.write {
+                    self.realm.delete(categoryForDeletion) // the object that we want to delete is the item at indexPath.row, so the row that was swiped on and we're going to look inside the collection of Results that we've called categoryArray and remove and remove the category at that index path
+                }
+            } catch {
+                print("Error deleting category, \(error)")
+            }
+        }
     }
     
     

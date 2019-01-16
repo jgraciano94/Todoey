@@ -8,10 +8,12 @@
 
 import UIKit
 import RealmSwift // in order to use the custom Item class below, we need to import RealmSwift
+import ChameleonFramework
 
-class TodoListViewController: UITableViewController {
-    // we are declaring our View Controller as the delegate of the UISearchBar
+class TodoListViewController: SwipeTableViewController {
 
+    @IBOutlet weak var searchBar: UISearchBar!
+    
     var todoItems : Results<Item>? // we are changing the data type from an array of Item objects to a data type of Results<Item>, the auto-updating container, containing a whole bunch of Item objects
     
     let realm = try! Realm() // we have to create a new instance of Realm
@@ -22,7 +24,7 @@ class TodoListViewController: UITableViewController {
         didSet {
             // we can use the special keyword didSet and everything that's between these curly braces is going to happen as soon as selectedCategory gets set with a value
             // when we call loadItems(), we are certain that we've already got a value for our selectedCategory and we are not calling it before we actually have a value which might crash our app.
-//            loadItems()
+            loadItems()
         }
     }
     
@@ -33,15 +35,81 @@ class TodoListViewController: UITableViewController {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        // here we are going to print the file path for our Document direcotry under the User Domain Mask; we just want to get a path to where our data is being stored for our current app.
-        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
-        // here we are going to print the file path for our Document directory under the User Domain Mask
-        //FileManager is the object that provides an interface to the file system.
-        // and then we are going to use the default file manager which is a shared file manager object
-        // .default is a singleton and this singleton contains a whole bunch of URLs and they are organized by directory and domain mask
-        // The Search path Directory we need to tap into is the Document directory
-        // the location where we are going to look for it is inside the user domain mask, this is the user's home directory, the place where we're going to save their personal items associated with this current app
+        // get rid of the separators in the Table View
+        tableView.separatorStyle = .none
 
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        
+        // the title is a localized string that represents the view this controller manages. And this is basically what the navigation controller will tap into to populate the title in the Navigation Bar
+        // because we are already in an optional binding block where we've already accessed the selectedCategories color through optional binding, then we are pretty sure that selectedCategory does exist and is not nil
+        // since this is no longer inside an 'if let' (after changing some to 'guard let'), then its safer to use optional chaining, so we set the title if we do in fact have a selectedCategory
+        title = selectedCategory?.name
+        
+        
+        // if this is not nil, then we will proceed with the following method
+        // we are going to change this to a guard let and if it fails, I'm going to throw a fatal error because we're not expecting these things to happen
+        guard let colorHex = selectedCategory?.color else { fatalError() }
+        
+        // calling the updateNavBar() method to update the UI (colors)
+        updateNavBar(withHexCode: colorHex)
+        
+        
+        
+    }
+    
+    // This gets called when the view is just about to be removed from the view hierarchy or the navigation stack and just before this current view controller gets destroyed
+    override func viewWillDisappear(_ animated: Bool) {
+        
+        //instead of all the code below, we are simply going to call updateNavBar() withHexCode and the HexCode will be the specific string "1D9BF6"
+        updateNavBar(withHexCode: "1D9BF6")
+        
+        
+//        // Now if the original color does in fact pass, then we are going to set the navigation controller's navigation bar's bar tint color to this original color
+//        // we are not going to guard against navigation controller being nil here because we are at the point of viewWillDisappear()
+//        navigationController?.navigationBar.barTintColor = originalColor
+//
+//        // the other thing we need to reset is the nav bar's tint color (so all of the buttons)
+//        navigationController?.navigationBar.tintColor = FlatWhite()
+//
+//        // finally, we are going to change the nav bar's large title text attributes to an NSAttributedString.key.foregroundColor and the value we are going to give it is again a FlatWhite()
+//        navigationController?.navigationBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor : FlatWhite()]
+        
+    }
+    
+    //MARK: - Nav Bar Setup Methods
+    
+    // we are going to call this function inside viewWillAppear() and viewDidLoad()
+    func updateNavBar(withHexCode colorHexCode : String) {
+        
+        // this says that if the navigation Controller exists, then set navBar equal to the navigation Bar of the navigation Controller, but if it is nil, then let this fatal error will be thrown
+        // here we are guarding against scenarios where navBar is nil
+        // at this point the navigation property has a value, it's not nil, and our current view controller is firmly inside the navigation stack
+        guard let navBar = navigationController?.navigationBar else {fatalError("Navigation controller does not exist.")}
+        
+        // UIColor(hexString: colorHex) is an optional UIColor so we have to optional bind it with if let. If that color is not nil, then we will se the nav bar background, the tint color, as well as the search bar colors
+        // we are using guard let here. If this UIColor fails, then we're going to throw a fatal error because we are not expecting that to happen.
+        // instead of using a colorHex as the hex string, the internal parameter inside this method is actually called colorHexCode
+        guard let navBarColor = UIColor(hexString: colorHexCode) else { fatalError() }
+        
+        // we are going to tap into our navigation controller.navigationBar and we are going to set the bar tint color and this will apply it both to the Navigation bar and the status bar
+        // selectedCategory?.color is a hex string so we have to cast it as a UI Color.
+        // selectedCategory?.color is an optional and UIColor(hexString: ) needs a non-optional string in order for this to work.
+        // another thing we are saying here is if the navigationController is not nil, then in that case we are going to set the tint color for the navigation bar
+        navBar.barTintColor = navBarColor
+        
+        // we can set the buttons to contrast against the background color in the nav bar. There is another property of the nav bar called the tintColor and this applies to all of the navigation items and bar button items. We are going to set it to the contrasting color of the nav bar and we're going to return it as flat which basically means a low contrast color
+        navBar.tintColor = ContrastColorOf(navBarColor, returnFlat: true)
+        
+        // because we are using the large title, we have to change the properties for the large title text attributes. It expects a dictionary which takes in a key which is an NSAttributed String key and it takes a value which is going to be the value for whichever key you choose.
+        // we are going to use the dot notation to find the key that we want. We want the foreground color. And this is going to be set to our ContrastColor contrasting the nav bar color, returning a flat color
+        navBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor : ContrastColorOf(navBarColor, returnFlat: true)]
+        
+        // this applies the tint color to the search bar background and we're going to set it to same color that we set it in our Navigation Bar
+        searchBar.barTintColor = navBarColor
+        
+        
     }
     
     //MARK: - Tableview Datasource Methods
@@ -57,16 +125,33 @@ class TodoListViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         // we are going to create a cell in here that is going to be a resuable cell
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
-        // here we are saying go and find that prototype cell called 'ToDoItemCell' inside main.storyboard and generate a whole bunch of it that we can reuse
-        // The identifier is the identifier which we gave to our prototype cell in main.storyboard
-        // the indexPath is going to be the current index path that the Table View is looking to populate
+        // we are no longer queuing our cell in here. Instead we are going to be using the superclasses' cell
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if let item = todoItems?[indexPath.row] { // this item is now the item that we're currently trying to set up for the cell
         // here we will use optional binding saying if todoItems is not nil, then grab the item at indexPath.row and if all of this works and it is not nil, then in that case, we're going to change all of our accessories based on the item.title and the item.done properties
             
             //Once we got our cell dequeued, the next step is to set the text label. This is the label that's in every single cell and we're going to set its text property and we're going to set it to equal the items in our item array
             cell.textLabel?.text = item.title // this is the current row of the current index that we are populating. We need to tap into the title property using the dot notation since this will return an Item object
+            
+            // let's say we are currently on row #5
+            // there's a total of 10 items in todoItems
+            // darken becomes CGFloat(indexPath.row / todoItems?.count)
+            // this offers an optional UIColor, but the backgroundColor of the cell needs to be a definite UI Color, so we have to do optional binding.
+            // This code only gets activated if todoItems is not nil, since we use optional binding above. So it is safe to force unwrap todoItems
+            // we passed in the current category using the selectedCategory property at the top of this class and this is an optional category that contains all the pieces of data in here including the name as well as the color of the category as a string.
+            // we can safely force unwrap selectedCategory because we know there is something in todoItems since we are in this if let optional binding pyramid, but todoItems comes from selectedCategory so there has to be something in selectedCategory.
+            // we are going to optionally chain UIColor (hexString:), so if this is not nil, i.e. we got a valide hex code creating a valid UI color and it's not nil, then go forward and try to darken it. Otherwise it will crash our app.
+            if let color = UIColor(hexString: selectedCategory!.color)?.darken(byPercentage: CGFloat(indexPath.row) / CGFloat(todoItems!.count)) {
+                
+                // here we are going to set the cell's background color. We're going to set the background color depending on the current indexPath. If the indexPath is 0 (like the first cell), then we're going to darken the color by a lot. If the indexPath is much higher (10th row), then we're going to darken it a lot more.
+                cell.backgroundColor = color
+                //this darken method takes a number between 0 and 1, where 1 is basically 100% and everything in between 0 and 1 is your percentage as a CGFloat, or Core Graphics Floating Point Number.
+                
+                // we are going to change the cell's textlabel .text color. We are going to pass in our background color that we generated above and returnFlat we are going to set to equal true. This will provide a contrasting effect for text and the background color.
+                cell.textLabel?.textColor = ContrastColorOf(color, returnFlat: true)
+                
+            }
             
             // here we are using a ternary operator
             // Value = condition ? valueIfTrue : valueIfFalse
@@ -107,9 +192,7 @@ class TodoListViewController: UITableViewController {
             // realm.write can throw errors, so we have to wrap it inside a do catch block
             do {
                 try realm.write { // realm.write updates our database
-                    realm.delete(item) // we are going to call the delete method of our Realm to delete the object that I specify and that object is obviously going to be our item that we picked out
-                    // it is going to delete this item from our Realm database
-//                    item.done = !item.done // the current done property becomes the opposite
+                    item.done = !item.done // the current done property becomes the opposite
                 }
             } catch {
                 print("Error saving done status, \(error)")
@@ -159,10 +242,9 @@ class TodoListViewController: UITableViewController {
                     print("Error saving new items, \(error)")
                 }
                 
-                self.tableView.reloadData() // we need to call this so we can call thos data source methods again and update our table view with the newItem because we've gotten rid of our save method
-                
-                
             }
+            
+        self.tableView.reloadData() // we need to call this so we can call thos data source methods again and update our table view with the newItem because we've gotten rid of our save method
             
         print(textField.text!) // to check if it the reference we created in the closure below works and is accessible globally. Prints everything that is added to the textfield after the Add Item button is pressed
         
@@ -195,6 +277,21 @@ class TodoListViewController: UITableViewController {
         
         tableView.reloadData() // this reloads the rows and the sections of the TableView taking into account the new data we've added to our itemArray
     }
+    
+    // here we are going to override updateModel in the super class. We're going to take that indexPath to delete our data. The indexPath gets passed in through our super class method updateModel(at indexPath) which gets triggered when the user swipes on a particular cell and tries to delete it
+    override func updateModel(at indexPath: IndexPath) {
+        
+        // we're going to grab a reference to our item at this particular index and if this is not nil, then:
+        if let itemForDeletion = todoItems?[indexPath.row] {
+            do { // here we are going to use realm.write to make some changes in REalm
+                try realm.write {
+                    realm.delete(itemForDeletion)
+                }
+            } catch {
+                print("Error deleting item, \(error)")
+            }
+        }
+    }
 
 
 
@@ -217,7 +314,6 @@ extension TodoListViewController : UISearchBarDelegate {
         // we don't need to call loadItems() because we've already loaded our todoItems from the selected Category and we're now just simply just filtering those items based on our search criteria and sort criteria
         
         tableView.reloadData()
-        
     }
 
     // here we are creating a new delegate method
